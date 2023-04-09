@@ -1,0 +1,143 @@
+---
+title: "Capstone_Project"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-03-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE)
+```
+
+```{r}
+install.packages("arrow")
+install.packages("FITSio")
+install.packages("tidyverse")
+```
+```{r}
+library("arrow")
+library("FITSio")
+library("tidyverse")
+```
+
+
+```{r}
+df <- read_parquet("gz2_catalog_with_modern_schema_no_paths.parquet")
+glimpse(df)
+```
+
+```{r}
+df2 <- read_parquet("nsa_v1_0_1_key_cols.parquet")
+glimpse(df2)
+```
+
+```{r}
+galaxy_zoo <- merge(df, df2, by="iauname")
+glimpse(galaxy_zoo)
+```
+```{r}
+galaxy_zoo <- galaxy_zoo %>% filter(!is.na(sersic_nmgy_r)) %>% filter(!is.infinite(sersic_nmgy_r))
+galaxy_zoo <- galaxy_zoo %>% mutate(log_sersic_nmgy_r = log(sersic_nmgy_r))
+galaxy_zoo <- galaxy_zoo %>% mutate(log_log_sersic_nmgy_r = log(log_sersic_nmgy_r))
+```
+
+```{r}
+galaxy_zoo %>% ggplot(aes(x = log_sersic_nmgy_r)) + geom_histogram(colour = "black", fill = "gray", bins = 50)
+```
+```{r}
+galaxy_zoo %>% ggplot(aes(x = log_log_sersic_nmgy_r)) + geom_histogram(colour = "black", fill = "gray", bins = 50)
+```
+
+
+```{r}
+galaxy_zoo %>% ggplot(aes(x = mag_r)) + geom_histogram(colour = "black", fill = "gray", bins = 50)
+```
+
+```{r}
+galaxy_zoo %>% ggplot(aes(x = redshift)) + geom_histogram(colour = "black", fill = "gray", bins = 20)
+```
+
+```{r}
+summary <- galaxy_zoo %>%
+  filter(!is.na(sersic_nmgy_r)) %>%
+  filter(!is.infinite(sersic_nmgy_r)) %>% 
+  summarise(mean = mean(sersic_nmgy_r),
+            n = n())
+summary
+```
+
+```{r}
+summary <- galaxy_zoo %>%
+  filter(!is.na(mag_r)) %>%
+  filter(!is.infinite(mag_r)) %>%
+  summarise(mean = mean(mag_r),
+            n = n())
+summary
+```
+
+```{r}
+summary <- galaxy_zoo %>%
+  filter(!is.na(redshift)) %>%
+  filter(!is.infinite(redshift)) %>%
+  summarise(sd = sd(redshift),
+            var = var(redshift),
+            n = n())
+summary
+```
+
+```{r}
+galaxy_zoo %>% ggplot(aes(x = log_sersic_nmgy_r, y = redshift)) + geom_point(alpha = 0.5) + theme_minimal()
+```
+
+```{r}
+galaxy_zoo %>% ggplot(aes(x = log_sersic_nmgy_r, y = redshift)) + geom_point(alpha = 0.5) + theme_minimal() + geom_smooth(se = FALSE, method = "lm")
+```
+
+```{r}
+galaxy_zoo <- galaxy_zoo %>%
+  filter(!is.na(log_sersic_nmgy_r)) %>%
+  filter(!is.infinite(log_sersic_nmgy_r)) %>%
+  filter(!is.na(redshift)) %>%
+  filter(!is.infinite(redshift))
+
+galaxy_zoo %>% summarise(correlation = cor(log_sersic_nmgy_r, redshift))
+```
+
+```{r}
+apparent_brightness <- galaxy_zoo %>% select(sersic_nmgy_r, mag_r)
+glimpse(apparent_brightness)
+```
+
+
+```{r}
+set.seed(420)
+repetitions <- 1000
+simulated_values <- rep(NA, repetitions)
+for(i in 1:repetitions){
+  simdata <- galaxy_zoo %>% mutate(apparent_brightness = sample(apparent_brightness))
+  sim_value <- simdata %>% group_by(apparent_brightness) %>% summarise(means = mean(mag_r), .groups = "drop") %>% summarise(value = diff(means))
+  simulated_values[i] <- as.numeric(sim_value)
+}
+
+sim <- tibble(mean_diff = simulated_values)
+
+sim %>% ggplot(aes(x = mean_diff)) + geom_histogram()
+```
+```{r}
+set.seed(420)
+repetitions <- 1000
+simulated_values <- rep(NA, repetitions)
+for(i in 1:repetitions){
+  simdata <- galaxy_zoo %>% mutate(apparent_brightness = sample(apparent_brightness))
+  sim_value <- simdata %>% group_by(apparent_brightness) %>% summarise(means = mean(mag_r), .groups = "drop") %>% mutate(diff_means = diff(means)) %>% summarise(mean_diff = mean(diff_means))
+  simulated_values[i] <- as.numeric(sim_value$mean_diff)
+}
+
+sim <- tibble(mean_diff = simulated_values)
+
+sim %>% ggplot(aes(x = mean_diff)) + geom_histogram()
+
+```
+
+
