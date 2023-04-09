@@ -1,5 +1,5 @@
 # Capstone-Project-Galaxy-Zoo
-In this project, we will analyze the Galaxy Zoo data provided by Mike Walmsley and associated data sets from NASA-Sloan Atlas (NSA). This data will be the only primary source for our analyses.
+In this project, we will analyze the Galaxy Zoo data provided by Mike Walmsley and associated data sets from NASA-Sloan Atlas (NSA). This data will be the only primary source for our analyses. You can find the data here: https://www.dropbox.com/sh/eytsiycznm4ubb1/AABJ1B-EQDMwd_32THIqlx40a?dl=0
 
 ## Can we identify whether the mean of two variables of an estimation for the galaxy's apparent brightness, `sersic_nmgy_r` and `mag_r`, are the same or not?
 Our first question is if we can determine whether the mean of the two variables, `sersic_nmgy_r` and `mag_r`, used to estimate the galaxy's apparent brightness are equal or not. We will compare the means of the two variables in this manner using the proper hypothesis tests.
