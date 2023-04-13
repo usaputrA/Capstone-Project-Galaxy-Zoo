@@ -1,0 +1,232 @@
+---
+title: "Capstone_Project"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-03-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE)
+```
+
+```{r}
+install.packages("arrow")
+install.packages("FITSio")
+install.packages("tidyverse")
+```
+```{r}
+library("arrow")
+library("FITSio")
+library("tidyverse")
+```
+
+
+```{r}
+# load in the Galaxy Zoo data
+df <- read_parquet("gz2_catalog_with_modern_schema_no_paths.parquet")
+glimpse(df)
+```
+```{r}
+# load in the NSA-Sloan Atlas data
+df2 <- read_parquet("nsa_v1_0_1_key_cols.parquet")
+glimpse(df2)
+```
+```{r}
+# combine data tables based on IAU name
+galaxy_zoo <- merge(df, df2, by="iauname")
+glimpse(galaxy_zoo)
+```
+After loading the data set, we can now go on to answering our questions.
+
+# Question 1: Can we identify whether the mean of two variables of an estimation for the galaxy's apparent brightness, `sersic_nmgy_r` and `mag_r`, are the same or not?
+
+First, we need to clarify what we mean by "two variables have the same mean." We say that two variables have the same mean if the difference between the means of random samples from each of the two variables gives a value that is roughly equivalent to the difference of their population means. The way of approaching the question based on this definition is by using simulation, and thus we will use hypothesis testing as our main statistical method here.
+
+We start by cleaning the data set by removing NA and infinite values from the variables we are focusing on: `sersic_nmgy_r` and `mag_r`.
+
+```{r}
+galaxy_zoo <- galaxy_zoo %>%
+  # filtering na and inf from `sersic_nmgy_r`
+  filter(!is.na(sersic_nmgy_r)) %>% filter(!is.infinite(sersic_nmgy_r)) %>% 
+  
+  # filtering na and inf from `mag_r`
+  filter(!is.na(mag_r)) %>% filter(!is.infinite(mag_r))
+```
+
+Next, we will be visualizing `sersic_nmgy_r` and `mag_r` to get overview of their values. We will start by creating the histogram for`sersic_nmgy_r`.
+
+```{r}
+galaxy_zoo %>% ggplot(aes(x = sersic_nmgy_r)) + 
+  geom_histogram(colour="black", fill="gray", bins=50) +
+  labs(title = "Histogram of sersic_nmgy_r")
+```
+As we can see from the histogram above, the data for `sersic_ngmy_r` is heavily skewed-right. Almost of the data is in the leftmost bin, and there are few outliers with high values that drive up the range of the data. This histogram does not help us in seeing the overall distribution of `sersic_ngmy_r`.
+
+To better describe the overall distribution of `sersic_ngmy_r`, we can create a new variable called `log_sersic_ngmy_r`, which is calculated by taking the logarithm of `sersic_ngmy_r` to reduce its spread, and creating a histogram for it.
+
+```{r}
+galaxy_zoo <- galaxy_zoo %>% 
+  # 1 is added to sersic_nmgy_r to handle 0 values
+  mutate(log_sersic_nmgy_r = log(sersic_nmgy_r + 1))
+
+galaxy_zoo %>% ggplot(aes(x=log_sersic_nmgy_r)) + 
+  geom_histogram(colour="black", fill="gray", bins=50) +
+  labs(title = "Histogram of sersic_nmgy_r")
+```
+We will also create a histogram for `mag_r` to compare the distribution of the two variables.
+
+```{r}
+galaxy_zoo %>% ggplot(aes(x=mag_r)) + 
+  geom_histogram(colour="black", fill="gray", bins=50) +
+  labs(title = "Histogram of mag_r")
+```
+
+From the two histograms, we can already see at a glance that the two variables have a fairly similar shape. The only difference is that `log_sersic_ngmy_r` is skewed right while `mag_r` is skewed left. We would expect our hypothesis testing gives us the result that both variables have the same means since we are calculating based on the difference of the means of a simulated sample rather than the mean value itself.
+
+Next, we perform a two-sided hypothesis test to confirm our previous assumption. We first set a value for our test statistic, which is the difference between the means of `sersic_nmgy_r` and `mag_r.`
+
+```{r}
+test_stat <- abs(mean(galaxy_zoo$sersic_nmgy_r) - mean(galaxy_zoo$mag_r))
+test_stat
+```
+Then, we state our null and alternative hypotheses, which is as following:
+
+\[H_0: |\hat{\mu}_{sersic\_ngmy\_r} - \hat{\mu}_{mag_r}| = 622.7868\]
+\[H_1: |\hat{\mu}_{sersic\_ngmy\_r} - \hat{\mu}_{mag_r}| \neq 622.7868\]
+
+with a significance level of $\alpha = 0.05$. $H_0$ states that `sersic_ngmy_r` and `mag_r` have the mean difference of 622.7868 , which we would expect to not be rejected based on our previous observation. Then, we obtain simulated data using the code below:
+
+```{r}
+# set seed such that the results are reproducible
+set.seed(130)
+
+# we set repetitions to 10000 and size to 1000 since there are more than 190000 observations
+repetitions <- 10000
+simulated_values <- rep(NA, repetitions)
+
+for(i in 1:repetitions){
+  simdata_s <- sample(galaxy_zoo$sersic_nmgy_r, size=1000)
+  simdata_m <- sample(galaxy_zoo$mag_r, size=1000)
+  
+  simulated_values[i] = mean(simdata_s) - mean(simdata_m)
+}
+
+sim <- tibble(mean_diff=simulated_values)
+
+sim %>% ggplot(aes(x=mean_diff)) +
+  geom_histogram(bins=30, color="black", fill="gray") +
+  labs(x = "Mean difference between sersic_nmgy_r and mag_r",
+       title = "Simulation results of the mean difference")
+```
+Notice that the data is skewed-right since `sersic_ngmy_r` have outliers with very big values. We will remove the outliers in our simulated data to get a more uniform result and since they did not have a significant impact on the result.
+
+```{r}
+sim <- sim %>% filter(mean_diff < 850)
+sim %>% ggplot(aes(x=mean_diff)) +
+  geom_histogram(bins=30, color="black", fill="gray") +
+  labs(x = "Mean difference between sersic_nmgy_r and mag_r",
+       title = "Simulation results of the mean difference")
+```
+
+Lastly, we will compute the p-value using our code below.
+
+```{r}
+num_more_extreme <- sim %>% filter(abs(mean_diff) >= abs(test_stat)) %>% summarize(n())
+num_more_extreme
+```
+
+
+```{r}
+p_value <- as.numeric(num_more_extreme / repetitions)
+p_value
+```
+As we obtained the p-value $p = 0.3738$, then we fail to reject the $H_0$ since it falls above the $\alpha = 0.05$ rejection threshold. Therefore, the results of our hypothesis testing matches that of our observation, and we can conclude that based on our analysis, `sersic_ngmy_r` and `mag_r` should have different mean value, and the difference is 622.7868.
+
+# Question 2: Can we determine the variability for `redshift`?
+
+In this problem, we aim to investigate the degree of variability exhibited by `redshift` values in the `galaxy_zoo` data set by analyzing its variance.
+
+To begin with, we will explore the `galaxy_zoo` data set. We assume that this data set defines the entire population of *n* = 191,755.
+
+Our focus will be on the `redshift` variable, which represents the change in the wavelength of light emitted by galaxies and can provide crucial insights into their properties and evolution. By examining the variability of `redshift`, we can obtain valuable information about the diversity of galaxies in terms of their distances from the observer, their sizes, and other characteristics.
+
+
+```{r}
+galaxy_zoo %>% glimpse()
+```
+
+Moving forward, we need to specify the sample of interest that we want to examine. Our approach will be to create a single random sample of 100 galaxies from the `galaxy_zoo` data set population and record these 100 observations in a `tibble` named `galaxy_sample`.
+
+```{r}
+set.seed(123)
+galaxy_sample <- galaxy_zoo %>% slice_sample(n = 100, replace = FALSE)
+```
+
+
+For deeper comprehension, we will create a summary table and a histogram of `redshift` for both the sample and entire population to provide an overview of the data.
+
+```{r}
+set.seed(123)
+# Summary Table
+galaxy_sample %>% summarise(n = n(),
+                            redshift_min = min(redshift),
+                            redshift_max = max(redshift),
+                            redshift_mean = mean(redshift),
+                            redshift_median = median(redshift),
+                            redshift_std = sd(redshift),
+                            redshift_var = var(redshift)
+                            )
+
+# Histogram
+galaxy_sample %>% ggplot(aes(x = redshift)) + 
+  geom_histogram(colour = "black", fill = "gray", bins = 8) +
+  labs(x = "Redshift of Random Sample of 100 galaxies",
+       title = "Histogram of redshift from the 100 Samples")
+```
+*Figure 2.1: Histogram of redshift from the 100 samples*
+
+```{r}
+set.seed(123)
+galaxy_zoo %>% ggplot(aes(x = redshift)) + 
+  geom_histogram(colour = "black", fill = "gray", bins = 20) + 
+  labs(x = "Redshift of the entire population", 
+       title = "Histogram of redshift from the Entire Population")
+```
+
+Based on the histogram shown, it appears that the `redshift` values are concentrated around the mean, implying that the galaxies exhibit a similar degree of redshift and consequently possess a relatively low level of variance.
+
+Now, to investigate the variability of `redshift` through estimating its variance, we will construct confidence intervals using bootstrapping method. Additionally, we will settle on a 95% confidence interval for each point.
+
+```{r}
+set.seed(123)
+n_sample <- dim(galaxy_sample)[1]
+n_bootstrap_simulations <- 1000
+
+bootstrap_test_statistics <- rep(NA, n_bootstrap_simulations)
+for(i in 1:n_bootstrap_simulations){
+  bootstrap_test_statistics[i] <- galaxy_sample %>% select(redshift) %>% 
+    slice_sample(n = n_sample, replace = TRUE) %>% 
+    summarize(redshift_var = var(redshift)) %>% as.numeric()
+}
+bootstrap_sampling_distribution <- 
+  tibble(redshift_var = bootstrap_test_statistics)
+
+bootstrap_sampling_distribution %>% ggplot() +
+  aes(x = redshift_var) +
+  geom_histogram(colour = "black", fill = "gray", bins = 20) + 
+  labs(x = "Variance of redshift", 
+       title = "Histogram of the Variance of redshift")
+
+```
+
+By using the simulation above, let's derive a 95% confidence interval for the variance of redshift.
+
+```{r}
+# Confidence Interval
+ci_95 <- bootstrap_sampling_distribution %>% 
+  summarise("Lower End (0.025)" = quantile(redshift_var, c(0.025)),
+            "Upper End (0.975)" = quantile(redshift_var, c(0.975)))
+ci_95
+```
+Therefore, this confidence interval shows that we are 95% confident that the variance of redshift for all galaxies is between 0.000878 and 0.00127.
