@@ -3,6 +3,10 @@ In this project, we will analyze the Galaxy Zoo data provided by Mike Walmsley a
 
 ## Can we identify whether the mean of two variables of an estimation for the galaxy's apparent brightness, `sersic_nmgy_r` and `mag_r`, are the same or not?
 Our first question is if we can determine whether the mean of the two variables, `sersic_nmgy_r` and `mag_r`, used to estimate the galaxy's apparent brightness are equal or not. We will compare the means of the two variables in this manner using the proper hypothesis tests.
+![image](https://user-images.githubusercontent.com/120763767/232146665-b523efe1-f832-41d8-8cbb-21b6dd3c32b9.png) ![image](https://user-images.githubusercontent.com/120763767/232146692-bb164d85-344c-40d5-895c-b5cc215e8007.png)
+
+![image](https://user-images.githubusercontent.com/120763767/232146853-8d622d60-1fe4-46da-93f9-faa2bcd4399e.png)
+
 
 ## Can we determine the variability for `redshift`?
 The second question is if we can ascertain the `redshift` variability. This information is crucial for assessing the precision of distance estimates based on redshift and comprehending the ramifications of measurement mistakes. We will compute redshift-specific measures of variability using bootstrap and evaluate their importance in order to analyze this question.
