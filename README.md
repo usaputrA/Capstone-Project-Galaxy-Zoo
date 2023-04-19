@@ -14,3 +14,4 @@ The second question is if we can ascertain the `redshift` variability. This info
 
 ## Depending on the galaxy's apparent brightness, does that correlate to how far away that galaxy is from us?
 The final question we address is whether the galaxy's apparent brightness correlates with its distance from us. In the study of observational cosmology, this relationship has received a great deal of attention since it is crucial to our comprehension of the universe's large-scale structure. We will perform a simple linear regression method and correlation analysis between `sersic_nmgy_r` and `redshift` to answer the question.
+![image](https://user-images.githubusercontent.com/120763767/232958016-2cada646-83fe-4cd9-a4dd-3ae6109f41e8.png)
